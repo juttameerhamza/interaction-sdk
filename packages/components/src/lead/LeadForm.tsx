@@ -11,12 +11,12 @@ export function LeadForm({ campaignId, title, slots }: LeadFormProps) {
   const controller = useLeadFormController({ campaignId });
   return <LeadFormView
     {...(title ? { title } : {})}
+    {...(slots ? { slots } : {})}
     values={controller.values}
     hydrated={controller.hydrated}
     isSubmitting={controller.isSubmitting}
     error={controller.error}
     lead={controller.data}
-    slots={slots}
     onChange={controller.update}
     onSubmit={controller.submit}
   />;
