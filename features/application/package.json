@@ -1,12 +1,12 @@
 {
-  "name": "@interaction-sdk/state",
+  "name": "@interaction-sdk/feature-application",
   "version": "0.1.0",
   "type": "module",
   "sideEffects": false,
   "exports": { ".": "./src/index.ts" },
   "dependencies": {
     "@interaction-sdk/core": "workspace:*",
-    "zustand": "^5.0.0"
+    "zod": "^4.0.0"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
