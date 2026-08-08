@@ -40,7 +40,7 @@ export const getApplicationCapability = defineCapability({
 export const submitApplicationCapability = defineCapability({
   name: "application.submit",
   version: 1,
-  description: "Submit a ready application.",
+  description: "Submit an application.",
   inputSchema: asApplicationRuntimeSchema(SubmitApplicationInputSchema),
   outputSchema: asApplicationRuntimeSchema(ApplicationSchema),
   async execute({ id }, context) {
@@ -53,7 +53,13 @@ export const submitApplicationCapability = defineCapability({
 });
 
 export function registerApplicationCapabilities(runtime: SdkRuntime): void {
-  for (const capability of [createApplicationCapability, getApplicationCapability, submitApplicationCapability]) {
-    if (!runtime.capabilities.has(capability.name)) runtime.capabilities.register(capability);
+  if (!runtime.capabilities.has(createApplicationCapability.name)) {
+    runtime.capabilities.register(createApplicationCapability);
+  }
+  if (!runtime.capabilities.has(getApplicationCapability.name)) {
+    runtime.capabilities.register(getApplicationCapability);
+  }
+  if (!runtime.capabilities.has(submitApplicationCapability.name)) {
+    runtime.capabilities.register(submitApplicationCapability);
   }
 }
