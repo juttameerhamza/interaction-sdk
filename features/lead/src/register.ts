@@ -14,9 +14,12 @@ export async function registerLeadFeature(
   runtime: SdkRuntime,
   options: RegisterLeadFeatureOptions = {},
 ): Promise<void> {
-  const repository = options.repository ?? new HttpLeadRepository(runtime.api);
-
   if (!runtime.dependencies.has(LeadRepositoryToken)) {
+    const repository = options.repository
+      ?? (runtime.services.has(LEAD_REPOSITORY)
+        ? runtime.services.get<LeadRepository>(LEAD_REPOSITORY)
+        : new HttpLeadRepository(runtime.api));
+
     runtime.dependencies.provide(LeadRepositoryToken, repository);
   }
 

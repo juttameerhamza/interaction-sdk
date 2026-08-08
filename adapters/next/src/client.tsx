@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, type PropsWithChildren } from "react";
+import { useEffect, useMemo, useState, type PropsWithChildren } from "react";
 import { useRouter } from "next/navigation";
 import { HydrationBoundary, type DehydratedState } from "@tanstack/react-query";
 import type { NavigationAdapter, PlatformAdapter } from "@interaction-sdk/core";
@@ -18,14 +18,32 @@ export function useNextClientNavigation(): NavigationAdapter {
 
 export function useNextClientPlatform(): PlatformAdapter {
   const navigation = useNextClientNavigation();
+  const [browserPlatform, setBrowserPlatform] = useState<PlatformAdapter | null>(null);
+
+  useEffect(() => {
+    setBrowserPlatform(createBrowserPlatform());
+  }, []);
+
   return useMemo(() => {
-    const browser = createBrowserPlatform();
+    if (!browserPlatform) {
+      return {
+        name: "next-client",
+        capabilities: {
+          server: false,
+          browser: false,
+          navigation: true,
+          persistentStorage: false,
+        },
+        navigation,
+      };
+    }
+
     return {
-      ...browser,
+      ...browserPlatform,
       name: "next-client",
       navigation,
     };
-  }, [navigation]);
+  }, [browserPlatform, navigation]);
 }
 
 export function SdkHydrationBoundary({

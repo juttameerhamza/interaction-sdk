@@ -33,7 +33,7 @@ function scopedKey(runtime: SdkRuntime, definition: PersistedStoreDefinition<unk
   const tenant = runtime.actor.tenantId ?? runtime.config.tenantId ?? "default";
   const actor = runtime.actor.id ?? runtime.actor.type;
   const namespace = scope === "global" ? "global" : scope === "tenant" ? tenant : `${tenant}:${actor}`;
-  return `interaction-sdk:${namespace}:${definition.id}:v${definition.version}`;
+  return `interaction-sdk:${namespace}:${definition.id}`;
 }
 
 export function createPersistedStore<TState, TPersisted>(
