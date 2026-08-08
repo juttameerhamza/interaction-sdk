@@ -28,8 +28,11 @@ jobs:
         run: |
           set -euo pipefail
           tar -xzf /tmp/interaction-sdk.tar.gz -C .
+          # Workflow-run tokens cannot create/replace workflow files. Keep this
+          # bootstrap workflow for the commit and add ci.yml via the GitHub API
+          # after the source tree lands.
+          rm -f .github/workflows/ci.yml
           rm -rf .bootstrap
-          rm -f .github/workflows/bootstrap.yml
 
       - name: Commit full starter workspace
         shell: bash
