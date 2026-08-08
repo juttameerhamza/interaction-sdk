@@ -1,4 +1,5 @@
 export * from "./schema.js";
+export * from "./transport.js";
 export * from "./repository.js";
 export * from "./capabilities.js";
 export * from "./actions.js";
