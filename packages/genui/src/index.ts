@@ -13,8 +13,8 @@ export interface UiNode {
   id: string;
   component: string;
   props: Record<string, unknown>;
-  actions?: UiActionBinding[];
-  children?: UiNode[];
+  actions?: UiActionBinding[] | undefined;
+  children?: UiNode[] | undefined;
 }
 
 export const UiNodeSchema: z.ZodType<UiNode> = z.lazy(() => z.object({
@@ -27,7 +27,7 @@ export const UiNodeSchema: z.ZodType<UiNode> = z.lazy(() => z.object({
 
 export interface ValidatedUiNode extends UiNode {
   props: Record<string, unknown>;
-  children?: ValidatedUiNode[];
+  children?: ValidatedUiNode[] | undefined;
 }
 
 export function validateUiTree(
