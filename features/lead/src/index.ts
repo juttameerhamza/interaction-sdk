@@ -5,3 +5,4 @@ export * from "./actions.js";
 export * from "./store.js";
 export * from "./catalog.js";
 export * from "./register.js";
+export * from "./feature.js";

@@ -1,12 +1,15 @@
-import type { ApiClient, OperationOptions } from "@interaction-sdk/core";
+import { createToken, type ApiClient, type OperationOptions } from "@interaction-sdk/core";
 import { LeadSchema, type CreateLeadInput, type Lead } from "./schema.js";
 
+/** @deprecated Use `LeadRepositoryToken` in new feature code. */
 export const LEAD_REPOSITORY = "lead.repository";
 
 export interface LeadRepository {
   get(id: string, options?: OperationOptions): Promise<Lead>;
   create(input: CreateLeadInput, options?: OperationOptions): Promise<Lead>;
 }
+
+export const LeadRepositoryToken = createToken<LeadRepository>("lead.repository");
 
 export class HttpLeadRepository implements LeadRepository {
   constructor(private readonly api: ApiClient) {}

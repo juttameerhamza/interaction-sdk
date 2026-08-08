@@ -45,11 +45,25 @@ export interface ConfirmationAdapter {
   confirm(request: ConfirmationRequest): Awaitable<boolean>;
 }
 
+export interface ActionExecutionContext {
+  readonly runtime: SdkRuntime;
+  readonly action: ActionDefinition;
+  readonly request: ActionRequest;
+  readonly options: ActionDispatchOptions;
+  readonly actor: ActorContext;
+  readonly actionId: string;
+  readonly interactionId: string;
+}
+
+export type ActionNext = () => Promise<ActionResult<unknown>>;
+export type ActionMiddleware = (context: ActionExecutionContext, next: ActionNext) => Promise<ActionResult<unknown>>;
+
 export interface ActionDispatcher {
   register(action: ActionDefinition): void;
   get(type: string): ActionDefinition;
   has(type: string): boolean;
   list(): readonly ActionDefinition[];
+  use(middleware: ActionMiddleware): void;
   dispatch<TOutput = unknown>(request: ActionRequest, options?: ActionDispatchOptions): Promise<ActionResult<TOutput>>;
 }
 
@@ -61,9 +75,108 @@ export const denyRequiredConfirmation: ConfirmationAdapter = {
   confirm: () => false,
 };
 
+function compose(middleware: readonly ActionMiddleware[], terminal: ActionNext, context: ActionExecutionContext): Promise<ActionResult<unknown>> {
+  let index = -1;
+  const run = (position: number): Promise<ActionResult<unknown>> => {
+    if (position <= index) return Promise.reject(new SdkError("Action middleware called next() more than once", "ACTION_MIDDLEWARE_REENTRY", "unexpected"));
+    index = position;
+    const current = middleware[position];
+    return current ? current(context, () => run(position + 1)) : terminal();
+  };
+  return run(0);
+}
+
+function errorBoundary(): ActionMiddleware {
+  return async (context, next) => {
+    try {
+      return await next();
+    } catch (error) {
+      const normalized = context.runtime.errors.normalize(error);
+      context.runtime.errors.report(normalized, {
+        actionId: context.actionId,
+        interactionId: context.interactionId,
+        actionType: context.action.type,
+      });
+      context.runtime.events.emit("sdk.action.failed", {
+        actionId: context.actionId,
+        interactionId: context.interactionId,
+        actionType: context.action.type,
+        error: normalized,
+      });
+      await context.runtime.telemetry.track({
+        name: "sdk.action.failed",
+        timestamp: Date.now(),
+        interactionId: context.interactionId,
+        properties: {
+          actionId: context.actionId,
+          actionType: context.action.type,
+          errorCode: normalized.code,
+        },
+      });
+      throw normalized;
+    }
+  };
+}
+
+function telemetry(): ActionMiddleware {
+  return async (context, next) => {
+    await context.runtime.telemetry.track({
+      name: "sdk.action.started",
+      timestamp: Date.now(),
+      interactionId: context.interactionId,
+      properties: {
+        actionId: context.actionId,
+        actionType: context.action.type,
+        actorType: context.actor.type,
+        risk: context.action.risk,
+      },
+    });
+    const result = await next();
+    context.runtime.events.emit("sdk.action.completed", {
+      actionId: context.actionId,
+      interactionId: context.interactionId,
+      actionType: context.action.type,
+    });
+    await context.runtime.telemetry.track({
+      name: "sdk.action.completed",
+      timestamp: Date.now(),
+      interactionId: context.interactionId,
+      properties: { actionId: context.actionId, actionType: context.action.type },
+    });
+    return result;
+  };
+}
+
+function policyAndConfirmation(): ActionMiddleware {
+  return async (context, next) => {
+    const decision = await context.runtime.policies.evaluate({
+      actor: context.actor,
+      action: context.action,
+      risk: context.action.risk,
+    });
+    if (!decision.allowed) {
+      throw new SdkError(decision.reason ?? "Action denied by policy", "ACTION_DENIED", "authorization", {
+        metadata: { actionType: context.action.type },
+      });
+    }
+    if (decision.confirmation === "required") {
+      const approved = await context.runtime.confirmations.confirm({
+        action: context.action,
+        actor: context.actor,
+        input: context.request.input,
+        interactionId: context.interactionId,
+      });
+      if (!approved) throw new SdkError("Action confirmation was declined", "ACTION_CONFIRMATION_DECLINED", "business");
+    }
+    return next();
+  };
+}
+
 export function createActionDispatcher(getRuntime: () => SdkRuntime): ActionDispatcher {
   const actions = new Map<string, ActionDefinition>();
   const inflight = new Map<string, Promise<ActionResult<unknown>>>();
+  const customMiddleware: ActionMiddleware[] = [];
+  const builtIns = [errorBoundary(), telemetry(), policyAndConfirmation()] as const;
 
   return {
     register(action) {
@@ -79,75 +192,46 @@ export function createActionDispatcher(getRuntime: () => SdkRuntime): ActionDisp
     },
     has(type) { return actions.has(type); },
     list() { return [...actions.values()]; },
+    use(middleware) { customMiddleware.push(middleware); },
     async dispatch<TOutput>(request: ActionRequest, options: ActionDispatchOptions = {}) {
       const runtime = getRuntime();
       const action = this.get(request.type);
       const actor = options.actor ?? runtime.actor;
       const interactionId = request.interactionId ?? crypto.randomUUID();
       const actionId = crypto.randomUUID();
-      const idempotencyKey = request.idempotencyKey;
-      const cacheKey = action.idempotent && idempotencyKey ? `${action.type}:${idempotencyKey}` : undefined;
+      const cacheKey = action.idempotent && request.idempotencyKey ? `${action.type}:${request.idempotencyKey}` : undefined;
 
       if (cacheKey) {
         const existing = inflight.get(cacheKey);
         if (existing) return existing as Promise<ActionResult<TOutput>>;
       }
 
-      const operation = (async (): Promise<ActionResult<TOutput>> => {
-        await runtime.telemetry.track({
-          name: "sdk.action.started",
-          timestamp: Date.now(),
+      const context: ActionExecutionContext = {
+        runtime,
+        action,
+        request,
+        options,
+        actor,
+        actionId,
+        interactionId,
+      };
+
+      const terminal = async (): Promise<ActionResult<unknown>> => {
+        const data = await runtime.capabilities.execute(action.capability, request.input, {
+          actor,
           interactionId,
-          properties: { actionId, actionType: action.type, actorType: actor.type, risk: action.risk },
+          ...(options.signal ? { signal: options.signal } : {}),
+          ...(request.idempotencyKey ? { idempotencyKey: request.idempotencyKey } : {}),
         });
+        return { ok: true, actionId, interactionId, data };
+      };
 
-        try {
-          const decision = await runtime.policies.evaluate({ actor, action, risk: action.risk });
-          if (!decision.allowed) {
-            throw new SdkError(decision.reason ?? "Action denied by policy", "ACTION_DENIED", "authorization", {
-              metadata: { actionType: action.type },
-            });
-          }
-
-          if (decision.confirmation === "required") {
-            const approved = await runtime.confirmations.confirm({ action, actor, input: request.input, interactionId });
-            if (!approved) throw new SdkError("Action confirmation was declined", "ACTION_CONFIRMATION_DECLINED", "business");
-          }
-
-          const data = await runtime.capabilities.execute<TOutput>(action.capability, request.input, {
-            actor,
-            interactionId,
-            ...(options.signal ? { signal: options.signal } : {}),
-            ...(idempotencyKey ? { idempotencyKey } : {}),
-          });
-
-          runtime.events.emit("sdk.action.completed", { actionId, interactionId, actionType: action.type });
-          await runtime.telemetry.track({
-            name: "sdk.action.completed",
-            timestamp: Date.now(),
-            interactionId,
-            properties: { actionId, actionType: action.type },
-          });
-          return { ok: true, actionId, interactionId, data };
-        } catch (error) {
-          const normalized = runtime.errors.normalize(error);
-          runtime.errors.report(normalized, { actionId, interactionId, actionType: action.type });
-          runtime.events.emit("sdk.action.failed", { actionId, interactionId, actionType: action.type, error: normalized });
-          await runtime.telemetry.track({
-            name: "sdk.action.failed",
-            timestamp: Date.now(),
-            interactionId,
-            properties: { actionId, actionType: action.type, errorCode: normalized.code },
-          });
-          throw normalized;
-        }
-      })();
-
+      const operation = compose([...builtIns, ...customMiddleware], terminal, context);
       if (cacheKey) {
-        inflight.set(cacheKey, operation as Promise<ActionResult<unknown>>);
+        inflight.set(cacheKey, operation);
         operation.finally(() => inflight.delete(cacheKey)).catch(() => undefined);
       }
-      return operation;
+      return operation as Promise<ActionResult<TOutput>>;
     },
   };
 }

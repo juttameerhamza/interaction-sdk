@@ -1,0 +1,14 @@
+{
+  "name": "@interaction-sdk/adapter-browser",
+  "version": "0.1.0",
+  "type": "module",
+  "sideEffects": false,
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": { "@interaction-sdk/core": "workspace:*" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rm -rf dist"
+  }
+}
