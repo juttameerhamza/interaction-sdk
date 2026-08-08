@@ -13,6 +13,8 @@ import type { ActionDispatcher, ConfirmationAdapter } from "./actions.js";
 import type { ContextRegistry } from "./context.js";
 import type { ComponentCatalog } from "./components.js";
 import type { LifecycleRegistry } from "./lifecycle.js";
+import type { Container } from "./token.js";
+import type { PlatformAdapter } from "./platform.js";
 import { anonymousAuthAdapter } from "./auth.js";
 import { noopTelemetry } from "./telemetry.js";
 import { createErrorManager } from "./errors.js";
@@ -26,6 +28,8 @@ import { createActionDispatcher, denyRequiredConfirmation } from "./actions.js";
 import { createContextRegistry } from "./context.js";
 import { createComponentCatalog } from "./components.js";
 import { createLifecycleRegistry } from "./lifecycle.js";
+import { createContainer } from "./token.js";
+import { neutralPlatform } from "./platform.js";
 
 export interface SdkRuntime {
   readonly config: RuntimeConfig;
@@ -37,7 +41,10 @@ export interface SdkRuntime {
   readonly persistence: PersistenceRegistry;
   readonly events: EventBus;
   readonly stores: StoreRegistry;
+  /** @deprecated New feature code should use typed dependency tokens via `dependencies`. */
   readonly services: ServiceRegistry;
+  readonly dependencies: Container;
+  readonly platform: PlatformAdapter;
   readonly capabilities: CapabilityRegistry;
   readonly policies: PolicyEngine;
   readonly actions: ActionDispatcher;
@@ -57,12 +64,16 @@ export interface CreateSdkRuntimeOptions {
   errors?: ErrorManager;
   confirmations?: ConfirmationAdapter;
   persistence?: Readonly<Record<string, PersistenceAdapter>>;
+  dependencies?: Container;
+  platform?: PlatformAdapter;
 }
 
 export function createSdkRuntime(options: CreateSdkRuntimeOptions): SdkRuntime {
   let runtime!: SdkRuntime;
+  const platform = options.platform ?? neutralPlatform;
   const persistence = createPersistenceRegistry({
     memory: createMemoryPersistenceAdapter(),
+    ...(platform.storage ?? {}),
     ...(options.persistence ?? {}),
   });
   const capabilities = createCapabilityRegistry(() => runtime);
@@ -80,6 +91,8 @@ export function createSdkRuntime(options: CreateSdkRuntimeOptions): SdkRuntime {
     events: createEventBus(),
     stores: createStoreRegistry(),
     services: createServiceRegistry(),
+    dependencies: options.dependencies ?? createContainer(),
+    platform,
     capabilities,
     policies: createPolicyEngine(),
     actions,

@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, PropsWithChildren, ReactNode } from "react";
+import { defineUiBindings } from "@interaction-sdk/ui";
 
 const stack = { display: "grid", gap: 6 } as const;
 
@@ -21,3 +22,5 @@ export function Button(props: ButtonHTMLAttributes<HTMLButtonElement>) {
 export function Alert({ children, title = "Something went wrong" }: { children?: ReactNode; title?: string }) {
   return <div role="alert" style={{ padding: 12, border: "1px solid currentColor", borderRadius: 8 }}><strong>{title}</strong>{children ? <div>{children}</div> : null}</div>;
 }
+
+export const demoUiBindings = defineUiBindings({ Card, Field, Input, Button, Alert });

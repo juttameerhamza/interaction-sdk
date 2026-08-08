@@ -1,16 +1,10 @@
 {
-  "name": "@interaction-sdk/feature-lead",
+  "name": "@interaction-sdk/adapter-browser",
   "version": "0.1.0",
   "type": "module",
   "sideEffects": false,
   "exports": { ".": "./src/index.ts" },
-  "dependencies": {
-    "@interaction-sdk/contracts": "workspace:*",
-    "@interaction-sdk/core": "workspace:*",
-    "@interaction-sdk/state": "workspace:*",
-    "zod": "^4.0.0",
-    "zustand": "^5.0.0"
-  },
+  "dependencies": { "@interaction-sdk/core": "workspace:*" },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",

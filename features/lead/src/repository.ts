@@ -1,12 +1,16 @@
-import type { ApiClient, OperationOptions } from "@interaction-sdk/core";
-import { LeadSchema, type CreateLeadInput, type Lead } from "./schema.js";
+import { createToken, type ApiClient, type OperationOptions } from "@interaction-sdk/core";
+import { type CreateLeadInput, type Lead } from "./schema.js";
+import { leadMapper, leadResponseContract } from "./transport.js";
 
+/** @deprecated Use `LeadRepositoryToken` in new feature code. */
 export const LEAD_REPOSITORY = "lead.repository";
 
 export interface LeadRepository {
   get(id: string, options?: OperationOptions): Promise<Lead>;
   create(input: CreateLeadInput, options?: OperationOptions): Promise<Lead>;
 }
+
+export const LeadRepositoryToken = createToken<LeadRepository>("lead.repository");
 
 export class HttpLeadRepository implements LeadRepository {
   constructor(private readonly api: ApiClient) {}
@@ -16,7 +20,7 @@ export class HttpLeadRepository implements LeadRepository {
       ...(options.signal ? { signal: options.signal } : {}),
       ...(options.interactionId ? { interactionId: options.interactionId } : {}),
     });
-    return LeadSchema.parse(response);
+    return leadMapper.toDomain(leadResponseContract.parse(response));
   }
 
   async create(input: CreateLeadInput, options: OperationOptions = {}): Promise<Lead> {
@@ -25,7 +29,7 @@ export class HttpLeadRepository implements LeadRepository {
       ...(options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : {}),
       ...(options.interactionId ? { interactionId: options.interactionId } : {}),
     });
-    return LeadSchema.parse(response);
+    return leadMapper.toDomain(leadResponseContract.parse(response));
   }
 }
 

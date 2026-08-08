@@ -1,6 +1,6 @@
 import { defineCapability, type SdkRuntime } from "@interaction-sdk/core";
 import { asRuntimeSchema, CreateLeadInputSchema, GetLeadInputSchema, LeadSchema } from "./schema.js";
-import { LEAD_REPOSITORY, type LeadRepository } from "./repository.js";
+import { LeadRepositoryToken } from "./repository.js";
 
 export const createLeadCapability = defineCapability({
   name: "lead.create",
@@ -9,7 +9,7 @@ export const createLeadCapability = defineCapability({
   inputSchema: asRuntimeSchema(CreateLeadInputSchema),
   outputSchema: asRuntimeSchema(LeadSchema),
   async execute(input, context) {
-    const repository = context.runtime.services.get<LeadRepository>(LEAD_REPOSITORY);
+    const repository = context.runtime.dependencies.get(LeadRepositoryToken);
     const lead = await repository.create(input, {
       ...(context.signal ? { signal: context.signal } : {}),
       ...(context.idempotencyKey ? { idempotencyKey: context.idempotencyKey } : {}),
@@ -27,7 +27,7 @@ export const getLeadCapability = defineCapability({
   inputSchema: asRuntimeSchema(GetLeadInputSchema),
   outputSchema: asRuntimeSchema(LeadSchema),
   async execute({ id }, context) {
-    return context.runtime.services.get<LeadRepository>(LEAD_REPOSITORY).get(id, {
+    return context.runtime.dependencies.get(LeadRepositoryToken).get(id, {
       ...(context.signal ? { signal: context.signal } : {}),
       interactionId: context.interactionId,
     });
