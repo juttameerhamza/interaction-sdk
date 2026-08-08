@@ -19,4 +19,5 @@ jobs:
       - run: pnpm check:deps
       - run: pnpm typecheck
       - run: pnpm test
-      - run: pnpm build
+      - name: Build packages serially for diagnostics
+        run: pnpm -r --workspace-concurrency=1 --if-present run build
