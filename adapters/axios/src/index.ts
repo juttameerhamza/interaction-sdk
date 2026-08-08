@@ -1,15 +1,27 @@
 import axios, { AxiosError, type AxiosInstance } from "axios";
-import { SdkError, type ApiClient, type ApiRequestOptions, type AuthAdapter } from "@interaction-sdk/core";
+import {
+  executeWithRetry,
+  noRetryPolicy,
+  SdkError,
+  type ApiClient,
+  type ApiRequestOptions,
+  type AuthAdapter,
+  type RetryPolicy,
+} from "@interaction-sdk/core";
 
 export interface CreateAxiosApiClientOptions {
   baseUrl: string;
   auth?: AuthAdapter;
   timeoutMs?: number;
+  retryPolicy?: RetryPolicy;
   axiosInstance?: AxiosInstance;
 }
 
-function normalizeAxiosError(error: unknown): never {
-  if (!axios.isAxiosError(error)) throw error;
+function normalizeAxiosError(error: unknown): SdkError {
+  if (error instanceof SdkError) return error;
+  if (!axios.isAxiosError(error)) {
+    return new SdkError("Unexpected transport failure", "HTTP_UNEXPECTED", "unexpected", { cause: error });
+  }
   const axiosError = error as AxiosError<{ code?: string; message?: string; correlationId?: string }>;
   const status = axiosError.response?.status;
   const body = axiosError.response?.data;
@@ -19,7 +31,7 @@ function normalizeAxiosError(error: unknown): never {
   else if (status === 409) category = "conflict";
   else if (status === 422 || status === 400) category = "validation";
   else if (status === 429) category = "rate-limit";
-  throw new SdkError(body?.message ?? axiosError.message, body?.code ?? `HTTP_${status ?? "NETWORK"}`, category, {
+  return new SdkError(body?.message ?? axiosError.message, body?.code ?? `HTTP_${status ?? "NETWORK"}`, category, {
     ...(status ? { status } : {}),
     retryable: !status || status >= 500 || status === 429,
     ...(body?.correlationId ? { correlationId: body.correlationId } : {}),
@@ -29,6 +41,8 @@ function normalizeAxiosError(error: unknown): never {
 
 export function createAxiosApiClient(options: CreateAxiosApiClientOptions): ApiClient {
   const client = options.axiosInstance ?? axios.create({ baseURL: options.baseUrl, timeout: options.timeoutMs ?? 20_000 });
+  const retryPolicy = options.retryPolicy ?? noRetryPolicy;
+
   client.interceptors.request.use(async (config) => {
     const token = await options.auth?.getAccessToken();
     if (token) config.headers.Authorization = `Bearer ${token}`;
@@ -36,22 +50,30 @@ export function createAxiosApiClient(options: CreateAxiosApiClientOptions): ApiC
   });
 
   const request = async <T>(method: string, path: string, body: unknown, requestOptions: ApiRequestOptions = {}): Promise<T> => {
-    try {
-      const response = await client.request<T>({
-        method,
-        url: path,
-        ...(body !== undefined ? { data: body } : {}),
+    const idempotent = method === "GET" || Boolean(requestOptions.idempotencyKey);
+    return executeWithRetry(
+      async () => {
+        const response = await client.request<T>({
+          method,
+          url: path,
+          ...(body !== undefined ? { data: body } : {}),
+          ...(requestOptions.signal ? { signal: requestOptions.signal } : {}),
+          headers: {
+            ...requestOptions.headers,
+            ...(requestOptions.idempotencyKey ? { "Idempotency-Key": requestOptions.idempotencyKey } : {}),
+            ...(requestOptions.interactionId ? { "X-Interaction-Id": requestOptions.interactionId } : {}),
+          },
+        });
+        return response.data;
+      },
+      {
+        policy: retryPolicy,
+        operation: `${method} ${path}`,
+        idempotent,
+        normalizeError: normalizeAxiosError,
         ...(requestOptions.signal ? { signal: requestOptions.signal } : {}),
-        headers: {
-          ...requestOptions.headers,
-          ...(requestOptions.idempotencyKey ? { "Idempotency-Key": requestOptions.idempotencyKey } : {}),
-          ...(requestOptions.interactionId ? { "X-Interaction-Id": requestOptions.interactionId } : {}),
-        },
-      });
-      return response.data;
-    } catch (error) {
-      return normalizeAxiosError(error);
-    }
+      },
+    );
   };
 
   return {
