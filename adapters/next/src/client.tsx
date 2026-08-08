@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, type PropsWithChildren } from "react";
 import { useRouter } from "next/navigation";
+import { HydrationBoundary, type DehydratedState } from "@tanstack/react-query";
 import type { NavigationAdapter, PlatformAdapter } from "@interaction-sdk/core";
 import { createBrowserPlatform } from "@interaction-sdk/adapter-browser";
 
@@ -25,4 +26,11 @@ export function useNextClientPlatform(): PlatformAdapter {
       navigation,
     };
   }, [navigation]);
+}
+
+export function SdkHydrationBoundary({
+  state,
+  children,
+}: PropsWithChildren<{ state: DehydratedState }>) {
+  return <HydrationBoundary state={state}>{children}</HydrationBoundary>;
 }

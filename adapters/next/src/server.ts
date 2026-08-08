@@ -1,11 +1,13 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { QueryClient, dehydrate, type DehydratedState } from "@tanstack/react-query";
 import {
   createSdk,
   type AnyFeature,
   type CreateSdkOptions,
   type NavigationAdapter,
   type PlatformAdapter,
+  type QueryDefinition,
   type Sdk,
 } from "@interaction-sdk/core";
 import type { NextActorResolver, NextRequestContext } from "./shared.js";
@@ -55,4 +57,28 @@ export async function createNextServerSdk<const TFeatures extends readonly AnyFe
     actor,
     platform: createNextServerPlatform(),
   });
+}
+
+export function createNextQueryClient(): QueryClient {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { staleTime: 30_000, retry: 1 },
+      mutations: { retry: 0 },
+    },
+  });
+}
+
+export async function prefetchSdkQuery<TData>(
+  queryClient: QueryClient,
+  definition: QueryDefinition<TData>,
+): Promise<void> {
+  await queryClient.prefetchQuery({
+    queryKey: definition.key,
+    queryFn: ({ signal }) => definition.execute({ signal }),
+    ...(definition.staleTime !== undefined ? { staleTime: definition.staleTime } : {}),
+  });
+}
+
+export function dehydrateSdkQueries(queryClient: QueryClient): DehydratedState {
+  return dehydrate(queryClient);
 }

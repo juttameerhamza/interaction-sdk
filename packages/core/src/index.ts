@@ -11,6 +11,7 @@ export * from "./token.js";
 export * from "./platform.js";
 export * from "./feature.js";
 export * from "./workflow.js";
+export * from "./query.js";
 export * from "./context.js";
 export * from "./components.js";
 export * from "./capabilities.js";
