@@ -1,0 +1,12 @@
+{
+  "name": "@interaction-sdk-example/mcp",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@interaction-sdk/adapter-mcp": "workspace:*",
+    "@interaction-sdk/testing": "workspace:*",
+    "@modelcontextprotocol/server": "^2.0.0"
+  },
+  "devDependencies": { "tsx": "^4.20.0", "@types/node": "^24.0.0" },
+  "scripts": { "dev": "tsx src/server.ts", "build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit", "test": "echo no-tests", "clean": "rm -rf dist" }
+}

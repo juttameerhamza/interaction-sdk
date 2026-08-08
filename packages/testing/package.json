@@ -1,0 +1,9 @@
+{
+  "name": "@interaction-sdk/testing",
+  "version": "0.1.0",
+  "type": "module",
+  "sideEffects": false,
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": { "@interaction-sdk/core": "workspace:*", "@interaction-sdk/feature-lead": "workspace:*" },
+  "scripts": { "build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit", "test": "vitest run", "clean": "rm -rf dist" }
+}

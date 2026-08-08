@@ -1,0 +1,10 @@
+import { Suspense, lazy } from "react";
+import { createRoot } from "react-dom/client";
+import { QueryClient } from "@tanstack/react-query";
+import { createWebStoragePersistenceAdapter } from "@interaction-sdk/core";
+import { createDemoRuntime } from "@interaction-sdk/testing";
+const LeadWidget = lazy(() => import("lead_remote/LeadWidget"));
+const DraftInspector = lazy(() => import("draft_remote/DraftInspector"));
+const runtime = await createDemoRuntime({ persistence: createWebStoragePersistenceAdapter(sessionStorage) });
+const queryClient = new QueryClient();
+createRoot(document.getElementById("root")!).render(<main><h1>Microfrontend shared runtime</h1><p>The shell owns one runtime and one QueryClient, then injects both into independently built remotes.</p><Suspense fallback={<p>Loading remotes…</p>}><div style={{ display: "grid", gridTemplateColumns: "minmax(0,2fr) minmax(0,1fr)", gap: 24 }}><LeadWidget runtime={runtime} queryClient={queryClient} /><DraftInspector runtime={runtime} queryClient={queryClient} /></div></Suspense></main>);

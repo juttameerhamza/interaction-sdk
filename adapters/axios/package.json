@@ -1,0 +1,9 @@
+{
+  "name": "@interaction-sdk/adapter-axios",
+  "version": "0.1.0",
+  "type": "module",
+  "sideEffects": false,
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": { "@interaction-sdk/core": "workspace:*", "axios": "^1.11.0" },
+  "scripts": { "build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit", "test": "vitest run", "clean": "rm -rf dist" }
+}

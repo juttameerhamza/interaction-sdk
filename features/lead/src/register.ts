@@ -1,0 +1,30 @@
+import type { PersistenceAdapter, SdkRuntime } from "@interaction-sdk/core";
+import { registerLeadCapabilities } from "./capabilities.js";
+import { registerLeadActions } from "./actions.js";
+import { registerLeadComponentCatalog } from "./catalog.js";
+import { HttpLeadRepository, LEAD_REPOSITORY, type LeadRepository } from "./repository.js";
+import { createLeadDraftStore, LEAD_DRAFT_STORE } from "./store.js";
+
+export interface RegisterLeadFeatureOptions {
+  repository?: LeadRepository;
+  persistence?: PersistenceAdapter;
+}
+
+export async function registerLeadFeature(
+  runtime: SdkRuntime,
+  options: RegisterLeadFeatureOptions = {},
+): Promise<void> {
+  if (!runtime.services.has(LEAD_REPOSITORY)) {
+    runtime.services.register(LEAD_REPOSITORY, options.repository ?? new HttpLeadRepository(runtime.api));
+  }
+  registerLeadCapabilities(runtime);
+  registerLeadActions(runtime);
+  registerLeadComponentCatalog(runtime);
+
+  if (!runtime.stores.has(LEAD_DRAFT_STORE)) {
+    const controller = createLeadDraftStore(runtime, options.persistence);
+    runtime.stores.register(LEAD_DRAFT_STORE, controller.store);
+    runtime.lifecycle.add(controller);
+    await controller.hydrate();
+  }
+}

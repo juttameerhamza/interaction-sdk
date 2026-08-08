@@ -1,0 +1,31 @@
+{
+  "name": "interaction-sdk-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.15.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev --parallel",
+    "test": "turbo test",
+    "typecheck": "turbo typecheck",
+    "lint": "turbo lint",
+    "clean": "turbo clean && git clean -xdf node_modules .turbo",
+    "check:core": "tsc -p packages/core/tsconfig.json --noEmit",
+    "check:boundaries": "node scripts/check-boundaries.mjs",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "changeset publish",
+    "check:deps": "node scripts/check-workspace-deps.mjs",
+    "check": "pnpm check:boundaries && pnpm check:deps && pnpm check:core"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "turbo": "^2.5.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.0",
+    "@changesets/cli": "^2.29.0"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "@interaction-sdk/genui-react",
+  "version": "0.1.0",
+  "type": "module",
+  "sideEffects": false,
+  "exports": { ".": "./src/index.tsx" },
+  "peerDependencies": { "react": "^19.0.0" },
+  "dependencies": { "@interaction-sdk/core": "workspace:*", "@interaction-sdk/genui": "workspace:*", "@interaction-sdk/react": "workspace:*" },
+  "devDependencies": { "@types/react": "^19.0.0" },
+  "scripts": { "build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit", "test": "vitest run", "clean": "rm -rf dist" }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "@interaction-sdk-example/web-component",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "vite", "build": "vite build", "typecheck": "tsc --noEmit", "test": "echo no-tests", "clean": "rm -rf dist" },
+  "dependencies": {
+    "@interaction-sdk/adapter-web-component": "workspace:*",
+    "@interaction-sdk/core": "workspace:*",
+    "@interaction-sdk/testing": "workspace:*",
+    "@tanstack/react-query": "^5.80.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": { "@types/react": "^19.0.0", "@types/react-dom": "^19.0.0", "vite": "^7.0.0" }
+}
