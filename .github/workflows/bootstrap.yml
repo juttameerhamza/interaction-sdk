@@ -38,3 +38,5 @@ jobs:
           fi
           git commit -m 'feat: bootstrap interaction sdk reference architecture'
           git push origin HEAD:main
+
+# trigger bootstrap after workflow registration
