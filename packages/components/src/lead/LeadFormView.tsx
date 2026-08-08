@@ -19,7 +19,7 @@ export interface LeadFormViewProps {
   lead?: Lead | null;
   slots?: LeadFormSlots;
   onChange(field: keyof LeadDraft, value: string): void;
-  onSubmit(): void | Promise<void>;
+  onSubmit(): void | Promise<unknown>;
 }
 
 export function LeadFormView({
