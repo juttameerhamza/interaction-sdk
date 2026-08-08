@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - '.bootstrap/source.tar.gz.b64'
+      - '.bootstrap/chunks/**'
       - '.github/workflows/bootstrap.yml'
 
 permissions:
@@ -16,11 +16,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Reconstruct and verify starter archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .bootstrap/chunks/*.part | base64 -d > /tmp/interaction-sdk.tar.gz
+          echo '4fe32a09432e60a96dc0dd4b2ff8a27b0bfdbb3c3a5e928fc7caec1883ebbe83  /tmp/interaction-sdk.tar.gz' | sha256sum -c -
+
       - name: Expand starter repository
         shell: bash
         run: |
           set -euo pipefail
-          base64 -d .bootstrap/source.tar.gz.b64 > /tmp/interaction-sdk.tar.gz
           tar -xzf /tmp/interaction-sdk.tar.gz -C .
           rm -rf .bootstrap
           rm -f .github/workflows/bootstrap.yml
@@ -38,5 +44,3 @@ jobs:
           fi
           git commit -m 'feat: bootstrap interaction sdk reference architecture'
           git push origin HEAD:main
-
-# trigger bootstrap after workflow registration
