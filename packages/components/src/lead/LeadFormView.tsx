@@ -1,7 +1,7 @@
 import type { ComponentType, FormEvent } from "react";
 import type { Lead, LeadDraft } from "@interaction-sdk/feature-lead";
 import type { SdkError } from "@interaction-sdk/core";
-import { Alert, Button, Card, Field, Input } from "@interaction-sdk/design-system-demo";
+import { useUi } from "@interaction-sdk/ui";
 
 export interface LeadFormSlots {
   Header?: ComponentType<{ title: string }>;
@@ -22,6 +22,10 @@ export interface LeadFormViewProps {
   onSubmit(): void | Promise<unknown>;
 }
 
+function DefaultHeader({ title }: { title: string }) {
+  return <h2>{title}</h2>;
+}
+
 export function LeadFormView({
   title = "Tell us about yourself",
   values,
@@ -33,10 +37,11 @@ export function LeadFormView({
   onChange,
   onSubmit,
 }: LeadFormViewProps) {
-  const Header = slots?.Header ?? (({ title: text }) => <h2>{text}</h2>);
-  const SubmitButton = slots?.SubmitButton ?? ((props) => <Button type="submit" disabled={props.disabled}>{props.children}</Button>);
-  const ErrorView = slots?.Error ?? (({ error: sdkError }) => <Alert>{sdkError.message} <code>{sdkError.code}</code></Alert>);
-  const Success = slots?.Success ?? (({ lead: created }) => <Alert title="Lead created">Reference: {created.id}</Alert>);
+  const { Card, Field, Input, Button, Alert } = useUi();
+  const Header = slots?.Header ?? DefaultHeader;
+  const SubmitButton = slots?.SubmitButton;
+  const ErrorView = slots?.Error;
+  const SuccessView = slots?.Success;
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
@@ -47,14 +52,22 @@ export function LeadFormView({
     <Card>
       <Header title={title} />
       {!hydrated ? <p>Restoring draft…</p> : null}
-      {lead ? <Success lead={lead} /> : null}
-      {error ? <ErrorView error={error} /> : null}
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 14 }}>
-        <Field label="First name"><Input required value={values.firstName} onChange={(e) => onChange("firstName", e.target.value)} /></Field>
-        <Field label="Last name"><Input required value={values.lastName} onChange={(e) => onChange("lastName", e.target.value)} /></Field>
-        <Field label="Email"><Input required type="email" value={values.email} onChange={(e) => onChange("email", e.target.value)} /></Field>
-        <Field label="Phone"><Input value={values.phone} onChange={(e) => onChange("phone", e.target.value)} /></Field>
-        <SubmitButton disabled={isSubmitting}>{isSubmitting ? "Creating…" : "Create lead"}</SubmitButton>
+      {lead ? (
+        SuccessView ? <SuccessView lead={lead} /> : <Alert title="Lead created">Reference: {lead.id}</Alert>
+      ) : null}
+      {error ? (
+        ErrorView ? <ErrorView error={error} /> : <Alert>{error.message} <code>{error.code}</code></Alert>
+      ) : null}
+      <form onSubmit={handleSubmit}>
+        <Field label="First name"><Input required value={values.firstName} onChange={(event) => onChange("firstName", event.target.value)} /></Field>
+        <Field label="Last name"><Input required value={values.lastName} onChange={(event) => onChange("lastName", event.target.value)} /></Field>
+        <Field label="Email"><Input required type="email" value={values.email} onChange={(event) => onChange("email", event.target.value)} /></Field>
+        <Field label="Phone"><Input value={values.phone} onChange={(event) => onChange("phone", event.target.value)} /></Field>
+        {SubmitButton ? (
+          <SubmitButton disabled={isSubmitting}>{isSubmitting ? "Creating…" : "Create lead"}</SubmitButton>
+        ) : (
+          <Button type="submit" disabled={isSubmitting}>{isSubmitting ? "Creating…" : "Create lead"}</Button>
+        )}
       </form>
     </Card>
   );
