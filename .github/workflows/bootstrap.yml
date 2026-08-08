@@ -1,0 +1,40 @@
+name: Bootstrap interaction-sdk
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.bootstrap/source.tar.gz.b64'
+      - '.github/workflows/bootstrap.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Expand starter repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d .bootstrap/source.tar.gz.b64 > /tmp/interaction-sdk.tar.gz
+          tar -xzf /tmp/interaction-sdk.tar.gz -C .
+          rm -rf .bootstrap
+          rm -f .github/workflows/bootstrap.yml
+
+      - name: Commit full starter workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No bootstrap changes to commit.'
+            exit 0
+          fi
+          git commit -m 'feat: bootstrap interaction sdk reference architecture'
+          git push origin HEAD:main
