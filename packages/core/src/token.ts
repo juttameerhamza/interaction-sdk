@@ -22,19 +22,19 @@ export function createContainer(): Container {
   const values = new Map<symbol, unknown>();
 
   return {
-    provide(token, value) {
+    provide<T>(token: Token<T>, value: T): void {
       if (values.has(token.id)) {
         throw new SdkError(`Dependency '${token.name}' is already provided`, "DEPENDENCY_ALREADY_PROVIDED", "unexpected");
       }
       values.set(token.id, value);
     },
-    get(token) {
+    get<T>(token: Token<T>): T {
       if (!values.has(token.id)) {
         throw new SdkError(`Dependency '${token.name}' is not provided`, "DEPENDENCY_NOT_FOUND", "unexpected");
       }
       return values.get(token.id) as T;
     },
-    has(token) {
+    has<T>(token: Token<T>): boolean {
       return values.has(token.id);
     },
   };
