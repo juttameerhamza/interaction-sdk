@@ -38,4 +38,30 @@ describe("persisted stores", () => {
     await controller.dispose();
     expect(controller.status).toBe("disposed");
   });
+
+  it("does not revive a store when hydration finishes after disposal", async () => {
+    let resolveGet!: (value: unknown) => void;
+    const adapter: PersistenceAdapter = {
+      get: () => new Promise((resolve) => { resolveGet = resolve; }),
+      set: async () => undefined,
+      remove: async () => undefined,
+    };
+    const runtime = createSdkRuntime({
+      config: { apiUrl: "unused", environment: "test" }, actor: { type: "user", id: "user-1" }, api,
+    });
+    const controller = createPersistedStore(runtime, definePersistedStore({
+      id: "draft", version: 1, create: () => ({ value: 0, hydrated: false }),
+      schema: { parse: (input) => input as number }, select: (state) => state.value,
+      merge: (value, state) => ({ ...state, value }),
+      onHydrated: (state) => ({ ...state, hydrated: true }),
+    }), adapter);
+
+    const hydration = controller.hydrate();
+    await controller.dispose();
+    resolveGet({ version: 1, state: 42 });
+    await hydration;
+
+    expect(controller.status).toBe("disposed");
+    expect(controller.store.getState()).toEqual({ value: 0, hydrated: false });
+  });
 });

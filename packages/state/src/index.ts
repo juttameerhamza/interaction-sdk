@@ -55,6 +55,7 @@ export function createPersistedStore<TState, TPersisted>(
   let status: PersistedStoreController<TState>["status"] = "idle";
   let writes = Promise.resolve();
   let hydration: Promise<void> | undefined;
+  const isDisposed = () => status === "disposed";
 
   const report = (error: unknown, subsystem: string) => {
     const normalized = runtime.errors.normalize(error);
@@ -96,18 +97,22 @@ export function createPersistedStore<TState, TPersisted>(
                 : undefined;
 
             // User edits made while storage was loading always win.
-            if (persisted !== undefined && revision === startingRevision) {
+            if (!isDisposed() && persisted !== undefined && revision === startingRevision) {
               if (typeof raw.revision === "number") revision = Math.max(revision, raw.revision);
               store.setState(definition.merge(persisted, store.getState()), true);
             }
           }
-          status = "hydrated";
+          if (!isDisposed()) status = "hydrated";
         } catch (error) {
-          status = "failed";
-          report(error, "persisted-store-hydration");
+          if (!isDisposed()) {
+            status = "failed";
+            report(error, "persisted-store-hydration");
+          }
         } finally {
-          if (definition.onHydrated) store.setState(definition.onHydrated(store.getState()), true);
-          persistenceEnabled = true;
+          if (!isDisposed()) {
+            if (definition.onHydrated) store.setState(definition.onHydrated(store.getState()), true);
+            persistenceEnabled = true;
+          }
         }
       })();
       return hydration;
@@ -117,9 +122,10 @@ export function createPersistedStore<TState, TPersisted>(
     },
     async dispose() {
       if (status === "disposed") return;
+      status = "disposed";
+      persistenceEnabled = false;
       unsubscribe();
       await writes;
-      status = "disposed";
     },
   };
   return controller;

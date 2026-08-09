@@ -26,10 +26,11 @@ export async function createSdkMcpServer(runtime: SdkRuntime, options: CreateSdk
     version: options.version ?? runtime.config.sdkVersion ?? "0.1.0",
   });
   const include = options.includeActions ? new Set(options.includeActions) : null;
+  const agent = { ...runtime.actor, type: "agent" as const };
 
   for (const action of runtime.actions.list()) {
     if (include && !include.has(action.type)) continue;
-    const decision = await runtime.policies.evaluate({ actor: runtime.actor, action, risk: action.risk });
+    const decision = await runtime.policies.evaluate({ actor: agent, action, risk: action.risk });
     if (!decision.allowed) continue;
     const capability = runtime.capabilities.get(action.capability);
     const inputSchema = requireZodSchema(capability);
@@ -51,7 +52,7 @@ export async function createSdkMcpServer(runtime: SdkRuntime, options: CreateSdk
         },
       },
       async (input) => {
-        const result = await runtime.actions.dispatch({ type: action.type, input });
+        const result = await runtime.actions.dispatch({ type: action.type, input }, { actor: agent });
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result.data) }],
           ...(result.data && typeof result.data === "object" && !Array.isArray(result.data)
