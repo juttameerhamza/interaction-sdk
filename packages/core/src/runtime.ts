@@ -88,7 +88,12 @@ export function createSdkRuntime(options: CreateSdkRuntimeOptions): SdkRuntime {
     telemetry: options.telemetry ?? noopTelemetry,
     errors: options.errors ?? createErrorManager(),
     persistence,
-    events: createEventBus(),
+    events: createEventBus({
+      onListenerError(error, eventName) {
+        const normalized = runtime.errors.normalize(error);
+        try { runtime.errors.report(normalized, { subsystem: "event-bus", eventName }); } catch { /* observational */ }
+      },
+    }),
     stores: createStoreRegistry(),
     services: createServiceRegistry(),
     dependencies: options.dependencies ?? createContainer(),

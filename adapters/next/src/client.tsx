@@ -2,9 +2,19 @@
 
 import { useEffect, useMemo, useState, type PropsWithChildren } from "react";
 import { useRouter } from "next/navigation";
-import { HydrationBoundary, type DehydratedState } from "@tanstack/react-query";
+import { HydrationBoundary, QueryClient, type DehydratedState, type QueryClientConfig } from "@tanstack/react-query";
 import type { NavigationAdapter, PlatformAdapter } from "@interaction-sdk/core";
 import { createBrowserPlatform } from "@interaction-sdk/adapter-browser";
+
+let browserQueryClient: QueryClient | undefined;
+
+export function getNextBrowserQueryClient(config?: QueryClientConfig): QueryClient {
+  browserQueryClient ??= new QueryClient({
+    defaultOptions: { queries: { staleTime: 60_000 }, mutations: { retry: 0 } },
+    ...config,
+  });
+  return browserQueryClient;
+}
 
 export function useNextClientNavigation(): NavigationAdapter {
   const router = useRouter();

@@ -18,8 +18,11 @@ export interface PersistedStoreDefinition<TState, TPersisted> {
 
 export interface PersistedStoreController<TState> {
   readonly store: StoreApi<TState>;
+  readonly status: "idle" | "hydrating" | "hydrated" | "failed" | "disposed";
+  readonly revision: number;
   hydrate(): Promise<void>;
-  dispose(): void;
+  flush(): Promise<void>;
+  dispose(): Promise<void>;
 }
 
 export function definePersistedStore<TState, TPersisted>(
@@ -31,7 +34,10 @@ export function definePersistedStore<TState, TPersisted>(
 function scopedKey(runtime: SdkRuntime, definition: PersistedStoreDefinition<unknown, unknown>): string {
   const scope = definition.scope ?? "actor";
   const tenant = runtime.actor.tenantId ?? runtime.config.tenantId ?? "default";
-  const actor = runtime.actor.id ?? runtime.actor.type;
+  const actor = runtime.actor.id ?? runtime.config.sessionId;
+  if (scope === "actor" && !actor) {
+    throw new Error(`Persisted store '${definition.id}' requires an actor id or runtime sessionId`);
+  }
   const namespace = scope === "global" ? "global" : scope === "tenant" ? tenant : `${tenant}:${actor}`;
   return `interaction-sdk:${namespace}:${definition.id}`;
 }
@@ -45,49 +51,82 @@ export function createPersistedStore<TState, TPersisted>(
   const key = scopedKey(runtime, definition as PersistedStoreDefinition<unknown, unknown>);
   const store = createStore<TState>(definition.create);
   let persistenceEnabled = false;
+  let revision = 0;
+  let status: PersistedStoreController<TState>["status"] = "idle";
+  let writes = Promise.resolve();
+  let hydration: Promise<void> | undefined;
+  const isDisposed = () => status === "disposed";
+
+  const report = (error: unknown, subsystem: string) => {
+    const normalized = runtime.errors.normalize(error);
+    try { runtime.errors.report(normalized, { subsystem, store: definition.id, key }); } catch { /* observational */ }
+  };
 
   const unsubscribe = store.subscribe((state, previous) => {
+    revision += 1;
     if (!persistenceEnabled) return;
     const selected = definition.select(state);
     const previousSelected = definition.select(previous);
     if (Object.is(selected, previousSelected)) return;
 
-    void adapter.set(key, { version: definition.version, state: selected }).catch((error) => {
-      const normalized = runtime.errors.normalize(error);
-      runtime.errors.report(normalized, { subsystem: "persisted-store", store: definition.id, key });
-    });
+    const writeRevision = revision;
+    writes = writes
+      .then(() => adapter.set(key, { version: definition.version, revision: writeRevision, state: selected }))
+      .catch((error) => report(error, "persisted-store"));
   });
 
-  return {
+  const controller: PersistedStoreController<TState> = {
     store,
-    async hydrate() {
-      try {
-        const envelope = await adapter.get(key);
-        if (envelope && typeof envelope === "object" && "state" in envelope) {
-          const raw = envelope as { version?: unknown; state?: unknown };
-          const fromVersion = typeof raw.version === "number" ? raw.version : definition.version;
-          const persisted = fromVersion === definition.version
-            ? definition.schema.parse(raw.state)
-            : definition.migrate
-              ? definition.migrate(raw.state, fromVersion)
-              : undefined;
+    get status() { return status; },
+    get revision() { return revision; },
+    hydrate() {
+      if (hydration) return hydration;
+      if (status === "disposed") return Promise.reject(new Error(`Persisted store '${definition.id}' is disposed`));
+      status = "hydrating";
+      const startingRevision = revision;
+      hydration = (async () => {
+        try {
+          const envelope = await adapter.get(key);
+          if (envelope && typeof envelope === "object" && "state" in envelope) {
+            const raw = envelope as { version?: unknown; revision?: unknown; state?: unknown };
+            const fromVersion = typeof raw.version === "number" ? raw.version : definition.version;
+            const persisted = fromVersion === definition.version
+              ? definition.schema.parse(raw.state)
+              : definition.migrate
+                ? definition.migrate(raw.state, fromVersion)
+                : undefined;
 
-          if (persisted !== undefined) {
-            store.setState(definition.merge(persisted, store.getState()), true);
+            // User edits made while storage was loading always win.
+            if (!isDisposed() && persisted !== undefined && revision === startingRevision) {
+              if (typeof raw.revision === "number") revision = Math.max(revision, raw.revision);
+              store.setState(definition.merge(persisted, store.getState()), true);
+            }
+          }
+          if (!isDisposed()) status = "hydrated";
+        } catch (error) {
+          if (!isDisposed()) {
+            status = "failed";
+            report(error, "persisted-store-hydration");
+          }
+        } finally {
+          if (!isDisposed()) {
+            if (definition.onHydrated) store.setState(definition.onHydrated(store.getState()), true);
+            persistenceEnabled = true;
           }
         }
-      } catch (error) {
-        const normalized = runtime.errors.normalize(error);
-        runtime.errors.report(normalized, { subsystem: "persisted-store-hydration", store: definition.id, key });
-      } finally {
-        if (definition.onHydrated) {
-          store.setState(definition.onHydrated(store.getState()), true);
-        }
-        persistenceEnabled = true;
-      }
+      })();
+      return hydration;
     },
-    dispose() {
+    flush() {
+      return writes;
+    },
+    async dispose() {
+      if (status === "disposed") return;
+      status = "disposed";
+      persistenceEnabled = false;
       unsubscribe();
+      await writes;
     },
   };
+  return controller;
 }

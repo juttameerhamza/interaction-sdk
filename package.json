@@ -19,7 +19,8 @@
     "version-packages": "changeset version",
     "release": "changeset publish",
     "check:deps": "node scripts/check-workspace-deps.mjs",
-    "check": "pnpm check:boundaries && pnpm check:deps && pnpm check:core"
+    "check:packaging": "node scripts/check-package-exports.mjs",
+    "check": "pnpm check:boundaries && pnpm check:deps && pnpm check:core && pnpm check:packaging"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

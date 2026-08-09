@@ -65,6 +65,9 @@ export function createCapabilityRegistry(getRuntime: () => SdkRuntime): Capabili
     list() { return [...capabilities.values()]; },
     async execute<TOutput>(name: string, input: unknown, options: CapabilityExecuteOptions = {}) {
       const runtime = getRuntime();
+      if (runtime.lifecycle.disposed) {
+        throw new SdkError("SDK runtime is disposed", "RUNTIME_DISPOSED", "unexpected");
+      }
       const capability = this.get(name);
       const parsedInput = capability.inputSchema.parse(input);
       const interactionId = options.interactionId ?? crypto.randomUUID();

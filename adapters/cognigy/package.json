@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "type": "module",
   "sideEffects": false,
-  "exports": { ".": "./src/index.ts" },
+  "files": ["dist"],
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
   "dependencies": { "@interaction-sdk/genui": "workspace:*", "zod": "^4.0.0" },
   "scripts": { "build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit", "test": "vitest run", "clean": "rm -rf dist" }
 }

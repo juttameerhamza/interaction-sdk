@@ -24,6 +24,8 @@ export interface RuntimeConfig {
   environment: "development" | "test" | "staging" | "production";
   tenantId?: string;
   sdkVersion?: string;
+  /** Unique browser/session scope used when an actor has no stable id. */
+  sessionId?: string;
 }
 
 export interface OperationOptions {

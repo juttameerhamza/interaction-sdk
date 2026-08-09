@@ -43,4 +43,35 @@ describe("interaction runtime", () => {
     });
     expect(result.data).toEqual({ id: "lead-1", name: "Ada" });
   });
+
+  it("does not let telemetry or notification listeners change a successful action", async () => {
+    const runtime = createSdkRuntime({
+      config: { apiUrl: "https://example.test", environment: "test" },
+      actor: { type: "user", id: "user-1", permissions: ["write"] },
+      api,
+      telemetry: { track: async () => { throw new Error("exporter unavailable"); } },
+    });
+    runtime.events.on("sdk.action.completed", () => { throw new Error("observer failed"); });
+    runtime.capabilities.register(defineCapability({
+      name: "test.write",
+      version: 1,
+      inputSchema: pass<{ value: string }>(),
+      outputSchema: pass<{ value: string }>(),
+      async execute(input) { return input; },
+    }));
+    runtime.actions.register(defineAction({ type: "test.write", capability: "test.write", risk: "write", permissions: ["write"] }));
+
+    await expect(runtime.actions.dispatch({ type: "test.write", input: { value: "saved" } }))
+      .resolves.toMatchObject({ data: { value: "saved" } });
+  });
+
+  it("rejects execution after runtime disposal", async () => {
+    const runtime = createSdkRuntime({
+      config: { apiUrl: "https://example.test", environment: "test" },
+      actor: { type: "system", id: "system" },
+      api,
+    });
+    await runtime.dispose();
+    await expect(runtime.actions.dispatch({ type: "missing", input: {} })).rejects.toMatchObject({ code: "RUNTIME_DISPOSED" });
+  });
 });

@@ -25,11 +25,14 @@ export function createLifecycleRegistry(): LifecycleRegistry {
     async dispose() {
       if (isDisposed) return;
       isDisposed = true;
-      const pending = [...callbacks];
+      const pending = [...callbacks].reverse();
       callbacks.clear();
-      const results = await Promise.allSettled(pending.map((callback) => callback()));
-      const rejected = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
-      if (rejected) throw rejected.reason;
+      let firstError: unknown;
+      for (const callback of pending) {
+        try { await callback(); }
+        catch (error) { firstError ??= error; }
+      }
+      if (firstError) throw firstError;
     },
     get disposed() { return isDisposed; },
   };
