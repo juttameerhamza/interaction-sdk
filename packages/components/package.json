@@ -3,7 +3,12 @@
   "version": "0.1.0",
   "type": "module",
   "sideEffects": false,
-  "exports": { ".": "./src/index.ts", "./lead": "./src/lead/index.ts", "./lead/view": "./src/lead/LeadFormView.tsx" },
+  "files": ["dist"],
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./lead": { "types": "./dist/lead/index.d.ts", "import": "./dist/lead/index.js" },
+    "./lead/view": { "types": "./dist/lead/LeadFormView.d.ts", "import": "./dist/lead/LeadFormView.js" }
+  },
   "peerDependencies": { "react": "^19.0.0" },
   "dependencies": {
     "@interaction-sdk/core": "workspace:*",

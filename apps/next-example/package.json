@@ -4,6 +4,7 @@
   "scripts": { "dev": "next dev", "build": "next build", "typecheck": "tsc --noEmit", "test": "echo no-tests", "clean": "rm -rf .next" },
   "dependencies": {
     "@interaction-sdk/components": "workspace:*",
+    "@interaction-sdk/adapter-next": "workspace:*",
     "@interaction-sdk/core": "workspace:*",
     "@interaction-sdk/react": "workspace:*",
     "@interaction-sdk/testing": "workspace:*",

@@ -1,6 +1,6 @@
 import { createContext, useContext, type FormEvent, type PropsWithChildren } from "react";
 import { useLeadFormController, type UseLeadFormControllerOptions } from "@interaction-sdk/react/lead";
-import { Alert, Button, Field, Input } from "@interaction-sdk/design-system-demo";
+import { useUi } from "@interaction-sdk/ui";
 
 type Controller = ReturnType<typeof useLeadFormController>;
 const LeadFormContext = createContext<Controller | null>(null);
@@ -19,6 +19,7 @@ function Root({ children, ...options }: PropsWithChildren<UseLeadFormControllerO
 
 function Fields() {
   const controller = useController();
+  const { Field, Input } = useUi();
   return <div style={{ display: "grid", gap: 12 }}>
     <Field label="First name"><Input value={controller.values.firstName} onChange={(e) => controller.update("firstName", e.target.value)} /></Field>
     <Field label="Last name"><Input value={controller.values.lastName} onChange={(e) => controller.update("lastName", e.target.value)} /></Field>
@@ -29,16 +30,19 @@ function Fields() {
 
 function Submit({ children = "Create lead" }: PropsWithChildren) {
   const controller = useController();
+  const { Button } = useUi();
   return <Button type="submit" disabled={controller.isSubmitting}>{controller.isSubmitting ? "Creating…" : children}</Button>;
 }
 
 function ErrorMessage() {
   const { error } = useController();
+  const { Alert } = useUi();
   return error ? <Alert>{error.message}</Alert> : null;
 }
 
 function Success() {
   const { data } = useController();
+  const { Alert } = useUi();
   return data ? <Alert title="Lead created">Reference: {data.id}</Alert> : null;
 }
 

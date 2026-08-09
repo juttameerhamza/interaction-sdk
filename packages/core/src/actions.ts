@@ -92,18 +92,20 @@ function errorBoundary(): ActionMiddleware {
       return await next();
     } catch (error) {
       const normalized = context.runtime.errors.normalize(error);
-      context.runtime.errors.report(normalized, {
-        actionId: context.actionId,
-        interactionId: context.interactionId,
-        actionType: context.action.type,
-      });
+      try {
+        context.runtime.errors.report(normalized, {
+          actionId: context.actionId,
+          interactionId: context.interactionId,
+          actionType: context.action.type,
+        });
+      } catch { /* reporters are observational */ }
       context.runtime.events.emit("sdk.action.failed", {
         actionId: context.actionId,
         interactionId: context.interactionId,
         actionType: context.action.type,
         error: normalized,
       });
-      await context.runtime.telemetry.track({
+      await safeTrack(context.runtime, {
         name: "sdk.action.failed",
         timestamp: Date.now(),
         interactionId: context.interactionId,
@@ -120,7 +122,7 @@ function errorBoundary(): ActionMiddleware {
 
 function telemetry(): ActionMiddleware {
   return async (context, next) => {
-    await context.runtime.telemetry.track({
+    await safeTrack(context.runtime, {
       name: "sdk.action.started",
       timestamp: Date.now(),
       interactionId: context.interactionId,
@@ -137,7 +139,7 @@ function telemetry(): ActionMiddleware {
       interactionId: context.interactionId,
       actionType: context.action.type,
     });
-    await context.runtime.telemetry.track({
+    await safeTrack(context.runtime, {
       name: "sdk.action.completed",
       timestamp: Date.now(),
       interactionId: context.interactionId,
@@ -145,6 +147,14 @@ function telemetry(): ActionMiddleware {
     });
     return result;
   };
+}
+
+async function safeTrack(runtime: SdkRuntime, event: Parameters<SdkRuntime["telemetry"]["track"]>[0]): Promise<void> {
+  try {
+    await runtime.telemetry.track(event);
+  } catch {
+    // Telemetry is observational. Exporter failures must never affect actions.
+  }
 }
 
 function policyAndConfirmation(): ActionMiddleware {
@@ -195,6 +205,9 @@ export function createActionDispatcher(getRuntime: () => SdkRuntime): ActionDisp
     use(middleware) { customMiddleware.push(middleware); },
     async dispatch<TOutput>(request: ActionRequest, options: ActionDispatchOptions = {}) {
       const runtime = getRuntime();
+      if (runtime.lifecycle.disposed) {
+        throw new SdkError("SDK runtime is disposed", "RUNTIME_DISPOSED", "unexpected");
+      }
       const action = this.get(request.type);
       const actor = options.actor ?? runtime.actor;
       const interactionId = request.interactionId ?? crypto.randomUUID();

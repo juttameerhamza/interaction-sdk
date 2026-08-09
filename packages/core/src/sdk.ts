@@ -1,7 +1,7 @@
 import type { CreateSdkRuntimeOptions, SdkRuntime } from "./runtime.js";
 import { createSdkRuntime } from "./runtime.js";
 import type { AnyFeature, FeatureApi } from "./feature.js";
-import { installFeature } from "./feature.js";
+import { installFeature, preflightFeatures } from "./feature.js";
 import { createSdkManifest, type FeatureManifestEntry, type SdkManifest } from "./manifest.js";
 
 type FeatureMap<TFeatures extends readonly AnyFeature[]> = {
@@ -26,11 +26,9 @@ export async function createSdk<const TFeatures extends readonly AnyFeature[]>(
   const installedFeatures: FeatureManifestEntry[] = [];
 
   try {
+    preflightFeatures(features, runtime);
     for (const feature of features) {
       const installed = await installFeature(runtime, feature);
-      if (installed.id in featureApis) {
-        throw new Error(`Feature '${installed.id}' is already installed`);
-      }
       featureApis[installed.id] = installed.api;
       installedFeatures.push({ id: installed.id, version: installed.version });
     }

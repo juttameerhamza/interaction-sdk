@@ -15,8 +15,11 @@ export interface LeadDraftState {
 
 export interface LeadDraftStoreController {
   store: StoreApi<LeadDraftState>;
+  readonly status: "idle" | "hydrating" | "hydrated" | "failed" | "disposed";
+  readonly revision: number;
   hydrate(): Promise<void>;
-  dispose(): void;
+  flush(): Promise<void>;
+  dispose(): Promise<void>;
 }
 
 export const leadDraftStoreDefinition = definePersistedStore<LeadDraftState, LeadDraft>({

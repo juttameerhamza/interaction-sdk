@@ -11,7 +11,8 @@ const runtime = await createDemoRuntime({
   },
 });
 
-await serveStdio(() => createSdkMcpServer(runtime, {
+const server = await createSdkMcpServer(runtime, {
   name: "Interaction SDK MCP Example",
   includeActions: ["lead.create", "lead.get"],
-}));
+});
+await serveStdio(() => server);

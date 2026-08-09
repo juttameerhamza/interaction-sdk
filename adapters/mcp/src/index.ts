@@ -20,7 +20,7 @@ function requireZodSchema(capability: Capability): z.ZodType {
   return schema;
 }
 
-export function createSdkMcpServer(runtime: SdkRuntime, options: CreateSdkMcpServerOptions = {}): McpServer {
+export async function createSdkMcpServer(runtime: SdkRuntime, options: CreateSdkMcpServerOptions = {}): Promise<McpServer> {
   const server = new McpServer({
     name: options.name ?? "Interaction SDK",
     version: options.version ?? runtime.config.sdkVersion ?? "0.1.0",
@@ -29,14 +29,20 @@ export function createSdkMcpServer(runtime: SdkRuntime, options: CreateSdkMcpSer
 
   for (const action of runtime.actions.list()) {
     if (include && !include.has(action.type)) continue;
+    const decision = await runtime.policies.evaluate({ actor: runtime.actor, action, risk: action.risk });
+    if (!decision.allowed) continue;
     const capability = runtime.capabilities.get(action.capability);
     const inputSchema = requireZodSchema(capability);
+    const outputSchema = capability.outputSchema.native instanceof z.ZodType
+      ? capability.outputSchema.native
+      : undefined;
     server.registerTool(
       toToolName(action),
       {
         title: action.type,
         description: action.description ?? capability.description ?? action.type,
         inputSchema,
+        ...(outputSchema ? { outputSchema } : {}),
         annotations: {
           readOnlyHint: action.risk === "read",
           idempotentHint: action.idempotent ?? false,
@@ -45,7 +51,7 @@ export function createSdkMcpServer(runtime: SdkRuntime, options: CreateSdkMcpSer
         },
       },
       async (input) => {
-        const result = await runtime.actions.dispatch({ type: action.type, input }, { actor: { ...runtime.actor, type: "agent" } });
+        const result = await runtime.actions.dispatch({ type: action.type, input });
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result.data) }],
           ...(result.data && typeof result.data === "object" && !Array.isArray(result.data)

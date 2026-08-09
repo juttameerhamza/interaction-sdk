@@ -1,7 +1,7 @@
 import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useStore } from "zustand";
 import type { StoreApi } from "zustand/vanilla";
-import type { SdkError } from "@interaction-sdk/core";
+import { createQueryCacheScope, scopedQueryKey, type SdkError, type SdkRuntime } from "@interaction-sdk/core";
 import {
   LEAD_DRAFT_STORE,
   type CreateLeadInput,
@@ -11,13 +11,13 @@ import {
 import { useSdkRuntime } from "./provider.js";
 
 export const leadKeys = {
-  all: ["lead"] as const,
-  detail: (id: string) => [...leadKeys.all, "detail", id] as const,
+  all: (runtime: SdkRuntime) => scopedQueryKey(createQueryCacheScope(runtime), "lead"),
+  detail: (runtime: SdkRuntime, id: string) => [...leadKeys.all(runtime), "detail", id] as const,
 };
 
 export function leadQuery(runtime: ReturnType<typeof useSdkRuntime>, id: string) {
   return queryOptions({
-    queryKey: leadKeys.detail(id),
+    queryKey: leadKeys.detail(runtime, id),
     queryFn: async ({ signal }) => {
       const result = await runtime.actions.dispatch<Lead>({
         type: "lead.get",
@@ -51,7 +51,7 @@ export function useLeadFormController(options: UseLeadFormControllerOptions) {
       return result.data;
     },
     onSuccess: (lead) => {
-      queryClient.setQueryData(leadKeys.detail(lead.id), lead);
+      queryClient.setQueryData(leadKeys.detail(runtime, lead.id), lead);
       store.getState().reset();
       options.onSuccess?.(lead);
     },
