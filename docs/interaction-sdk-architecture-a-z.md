@@ -1,6 +1,6 @@
 # Interaction SDK Architecture — Complete A–Z Engineering Reference
 
-> **Document status:** Architecture reference and implementation handbook  
+> **Document status:** Canonical architecture reference, implementation handbook, and AI-agent handoff specification
 > **Repository:** `juttameerhamza/interaction-sdk`  
 > **Reference branch:** `refactor/final-architecture-foundation`  
 > **Reference commit:** `61e4f7aacf484c2b718719547f475d5dc2dff858`  
@@ -8,6 +8,7 @@
 > **Implementation coverage:** V1 foundation + substantial V1.1/V1.2 compatibility work; V2 agent runtime intentionally incomplete  
 > **Primary language:** TypeScript  
 > **Primary consumers:** React, Next.js App Router, internal portals/microfrontends, partner web integrations, Web Components, MCP/ChatGPT Apps, Cognigy, and future GenUI/agent runtimes
+> **Last architecture review:** 2026-08-12
 
 ---
 
@@ -93,6 +94,7 @@
 78. [Sequence Diagrams](#78-sequence-diagrams)
 79. [Operational Checklists](#79-operational-checklists)
 80. [Glossary](#80-glossary)
+81. [AI Agent Execution Protocol](#81-ai-agent-execution-protocol)
 
 ---
 
@@ -3794,6 +3796,13 @@ The repository already contains MCP/Cognigy/GenUI/Web Component integrations, bu
 | MFE shared runtime | Example implemented |
 | Runtime manifest | Implemented foundation |
 | Retry | Implemented foundation |
+| ESM `dist` package exports | Implemented foundation |
+| Frozen pnpm lockfile | Implemented |
+| CI architecture/package gates | Implemented foundation |
+| Query tenant/subject scoping | Implemented foundation |
+| Ordered persistence writes and flush | Implemented foundation |
+| Bounded GenUI validation | Implemented foundation |
+| Policy-filtered MCP discovery | Implemented foundation |
 | DevTools | Not complete |
 | Storybook | Not complete |
 | Production tracing adapters | Not complete |
@@ -3811,9 +3820,8 @@ The following should be treated as V1 hardening work, not optional polish.
 
 ## 75.1 Packaging
 
-- built `dist` export maps;
+- packed-tarball consumer fixtures;
 - package contract tests;
-- frozen lockfile;
 - tree-shaking validation;
 - publish/canary workflow.
 
@@ -4356,6 +4364,145 @@ Explicit state-transition definition; in V1 lightweight and local/domain-focused
 The Interaction SDK should be judged by one question:
 
 > **Can the organization add another real business feature and expose it consistently through React, Next.js, partners and agents without duplicating business logic or weakening security boundaries?**
+
+---
+
+# 81. AI Agent Execution Protocol
+
+This section makes the handbook directly usable as a handoff specification for another coding agent.
+
+## 81.1 Source-of-truth order
+
+When documentation and implementation disagree, inspect and reconcile them in this order:
+
+1. Accepted ADRs in `docs/decisions/` define architectural intent.
+2. Security invariants in `SECURITY.md` are mandatory.
+3. Package manifests and public export maps define the consumable API.
+4. Runtime schemas, types and tests define implemented behavior.
+5. This handbook describes the target architecture and implementation workflow.
+6. `docs/roadmap.md` describes incomplete future work, not existing behavior.
+
+Never claim a roadmap item is implemented merely because an interface, directory or example exists.
+
+## 81.2 Required discovery before editing
+
+For every task, the agent must first:
+
+```text
+Read repository status
+ → preserve unrelated/user changes
+ → read relevant ADR and package manifest
+ → trace public entry point to runtime/domain implementation
+ → locate existing tests and examples
+ → run the narrowest useful baseline check
+```
+
+Use `rg` for repository discovery. Do not import from another package's `src` directory or bypass its export map.
+
+## 81.3 Architecture decision test
+
+Before placing new behavior, ask these questions in order:
+
+1. Is it a business invariant or reusable operation? Put it in a domain feature/capability.
+2. Is it authorization, risk, confirmation or actor-facing intent? Put it in an action/policy.
+3. Is it backend access? Define a repository port and implement it at the transport edge.
+4. Is it backend resource state? Use a query definition and TanStack Query in React hosts.
+5. Is it draft/workflow-only client state? Use a runtime-owned vanilla Zustand store.
+6. Is it host or protocol translation? Put it in an adapter.
+7. Is it presentation? Put behavior in a controller and markup in an injected-UI view.
+8. Is it generated UI metadata? Put it in the component catalog, never executable source.
+
+If code would force `core` or a feature to import React, Next.js, Axios or a protocol package, the placement is wrong.
+
+## 81.4 Implementation loop
+
+Use this repeatable workflow:
+
+```text
+Define/confirm contract
+ → add failing behavior test
+ → implement at the narrowest correct layer
+ → validate schema and failure behavior
+ → update adapter/facade without duplicating logic
+ → run package tests and typecheck
+ → run architecture/dependency checks
+ → update documentation and migration notes
+```
+
+For breaking changes, update every public export, consumer example and migration mapping in the same change.
+
+## 81.5 Non-negotiable implementation constraints
+
+- A caller cannot grant itself permissions or substitute a more privileged principal.
+- Backend authorization and tenant isolation remain authoritative.
+- Telemetry, reporters and notification listeners cannot change business outcomes.
+- Query keys for protected resources include environment, tenant and subject scope.
+- Actor-scoped durable persistence requires a stable actor ID or unique session ID.
+- Generated UI has bounded size/complexity and uses catalog/action allow-lists.
+- Feature installation is preflighted and partial installation is disposed in reverse order.
+- Disposed runtimes reject new execution.
+- Adapters contain translation, lifecycle and protocol behavior—not domain duplication.
+- Published packages resolve only compiled `dist` artifacts through explicit exports.
+
+## 81.6 Definition of done for a feature
+
+A feature is complete only when:
+
+- domain schemas and transport DTOs are separate;
+- repository port and typed token exist;
+- capabilities validate input and output;
+- actions declare risk, permissions, confirmation and idempotency semantics;
+- the public facade routes through actions;
+- queries use scoped keys;
+- workflow persistence is versioned where used;
+- catalog/context exposure is actor-filtered where used;
+- at least one real and one in-memory repository path are tested;
+- no host/framework type leaks into the feature runtime package;
+- public exports and migration documentation are updated.
+
+## 81.7 Definition of done for an adapter
+
+An adapter is complete only when:
+
+- its principal and runtime ownership rules are explicit;
+- all inbound protocol payloads are validated;
+- cancellation, errors and cleanup are tested;
+- discovery is least-privilege where supported;
+- compatibility is checked before execution or mount;
+- domain behavior is reached through the normal action pipeline;
+- malformed, unauthorized and unavailable-host scenarios have safe outcomes;
+- its package builds and installs through the public `dist` export.
+
+## 81.8 Verification commands
+
+Run narrow checks while iterating, followed by the full release-oriented sequence:
+
+```bash
+pnpm build
+pnpm check
+pnpm typecheck
+pnpm test
+```
+
+`pnpm check` must enforce architecture boundaries, workspace dependency declarations, core type safety and built package exports. A successful command that reports `no-tests` is not evidence that an adapter is production-tested; inspect actual test files and coverage.
+
+## 81.9 Required handoff format
+
+At the end of an implementation task, report:
+
+1. Outcome and architectural behavior changed.
+2. Public API or migration impact.
+3. Files/packages materially affected.
+4. Exact verification commands and results.
+5. Remaining risks, unimplemented roadmap items or tests not executed.
+
+Never describe the complete production V1 plan as finished unless every production-readiness checklist item in this document is supported by implementation and automated evidence.
+
+## 81.10 Bootstrap prompt for another AI agent
+
+The following prompt can be supplied with this repository:
+
+> Treat `docs/interaction-sdk-architecture-a-z.md` as the canonical architecture and implementation handbook. Read the relevant ADRs and `SECURITY.md` before changing code. Preserve existing user changes. Trace the requested behavior through host adapter → action/policy → capability → repository and keep business logic out of hosts. Add or update tests, run narrow checks during implementation, then run `pnpm build`, `pnpm check`, `pnpm typecheck`, and `pnpm test`. Clearly distinguish implemented behavior from roadmap targets in your handoff.
 
 The intended final dependency chain is:
 

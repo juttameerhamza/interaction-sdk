@@ -57,7 +57,7 @@ pnpm --filter @interaction-sdk-example/mfe-draft-remote dev
 pnpm --filter @interaction-sdk-example/mfe-shell dev
 ```
 
-See [runtime support](./docs/runtime-support.md), [architecture](./docs/architecture.md), [security model](./SECURITY.md), and [roadmap](./docs/roadmap.md).
+See the [complete A–Z architecture and AI-agent implementation handbook](./docs/interaction-sdk-architecture-a-z.md), [runtime support](./docs/runtime-support.md), [architecture summary](./docs/architecture.md), [security model](./SECURITY.md), and [roadmap](./docs/roadmap.md).
 
 ### Exercise the real HTTP path
 
